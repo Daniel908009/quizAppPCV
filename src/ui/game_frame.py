@@ -28,6 +28,7 @@ class GameFrame(ttk.Frame):
         self.seconds_left = TIMER_SECONDS
         self.timer_job: str | None = None
         self.total_points = 0
+        self.revealedLetters: set[str] = set()
 
         self.bind("<Configure>", self._on_resize)
 
@@ -57,8 +58,11 @@ class GameFrame(ttk.Frame):
         self.points_label = ttk.Label(self, text="Current image value: 10 points", style="Heading.TLabel")
         self.points_label.grid(row=4, column=0, sticky="ew", pady=(0, 12))
 
+        self.characters_label = ttk.Label(self, text="", style="Hint.TLabel")
+        self.characters_label.grid(row=5, column=0, sticky="w", pady=(0, 12))
+
         initial_image = questions[0].image_path if questions else ""
-        self.board = ImageRevealCanvas(self.board_container, image_path=initial_image)
+        self.board = ImageRevealCanvas(self.board_container, image_path=initial_image, parent=self)
         self.board.on_reveal_change = self._update_points_label
         self.board.grid(row=0, column=0, sticky="nsew")
         self._update_points_label()
@@ -73,7 +77,7 @@ class GameFrame(ttk.Frame):
         self.instruction_label.grid(row=3, column=0, sticky="ew", pady=(0, 10))
 
         entry_frame = ttk.Frame(self)
-        entry_frame.grid(row=5, column=0, sticky="ew", pady=(0, 12))
+        entry_frame.grid(row=6, column=0, sticky="ew", pady=(0, 12))
         entry_frame.columnconfigure(0, weight=1)
 
         self.answer_var = tk.StringVar()
@@ -87,11 +91,14 @@ class GameFrame(ttk.Frame):
         skip_button = ttk.Button(entry_frame, text="Skip Question", command=self.skip_question, style="Game.TButton")
         skip_button.grid(row=0, column=2, padx=(12, 0))
 
+        revealLetterButton = ttk.Button(entry_frame, text="Reveal Letter (-2 points)", command=self._reveal_letter, style="Game.TButton")
+        revealLetterButton.grid(row=0, column=3, padx=(12, 0))
+
         self.feedback_label = ttk.Label(self, text="", wraplength=600, style="Feedback.TLabel")
-        self.feedback_label.grid(row=6, column=0, pady=(8, 0))
+        self.feedback_label.grid(row=7, column=0, pady=(8, 0))
 
         footer = ttk.Frame(self)
-        footer.grid(row=7, column=0, sticky="ew", pady=(18, 0))
+        footer.grid(row=8, column=0, sticky="ew", pady=(18, 0))
         footer.columnconfigure(0, weight=1)
 
         ttk.Button(footer, text="Exit to Menu", command=self._exit_to_menu, style="Menu.TButton").grid(row=0, column=0, sticky="w")
@@ -112,14 +119,37 @@ class GameFrame(ttk.Frame):
         self.progress_label.config(text=f"Question {self.session.questions_seen} of {len(self.session.questions)}")
         self.board.reset(question.image_path)
         self._update_points_label()
+        self._update_characters_label(question.answer)
         self.answer_var.set("")
         self.feedback_label.config(text="")
+        self.revealedLetters.clear()
 
     def _current_question_points(self) -> int:
         return self.board.current_points()
 
+    def _reveal_letter(self) -> None:
+        allLetters = set(self.session.current_question.answer.replace(" ", ""))
+        unrevealedLetters = allLetters - self.revealedLetters
+        if self.revealedLetters.__len__() > allLetters.__len__()//2:
+            self.feedback_label.config(text="You have revealed too many letters already.")
+            return
+        letter = unrevealedLetters.pop()
+        self.revealedLetters.add(letter)
+        self._update_characters_label(self.session.current_question.answer)
+        self._update_points_label()
+
     def _update_points_label(self) -> None:
         self.points_label.config(text=f"Current image value: {self.board.current_points()} points")
+
+    def _update_characters_label(self, answer: str) -> None:
+        text_ = ""
+        if answer:
+            for char in answer:
+                if char not in self.revealedLetters:
+                    text_ += "_ " if char != " " else "  "
+                else:
+                    text_ += char
+        self.characters_label.config(text=text_)
 
     def submit_answer(self) -> None:
         user_guess = self.answer_var.get().strip()

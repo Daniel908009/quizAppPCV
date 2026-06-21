@@ -12,9 +12,10 @@ from ..services.encryption import decrypt_bytes
 
 
 class ImageRevealCanvas(ttk.Frame):
-    def __init__(self, master: tk.Misc, image_path: str, blocks: int = 8, on_reveal_change: Callable[[], None] | None = None) -> None:
+    def __init__(self, master: tk.Misc, image_path: str, blocks: int = 8, on_reveal_change: Callable[[], None] | None = None, parent: tk.Misc | None = None) -> None:
         super().__init__(master)
         self.blocks = blocks
+        self.parent = parent
         self.image_path = image_path
         self.on_reveal_change = on_reveal_change
         self.revealed_cells: set[tuple[int, int]] = set()
@@ -48,7 +49,7 @@ class ImageRevealCanvas(ttk.Frame):
         return len(self.revealed_cells)
 
     def current_points(self) -> int:
-        count = self.revealed_count() - 1
+        count = self.revealed_count() - 1 + self.parent.revealedLetters.__len__()
         if count < 0:
             count = 0
         points = max(1, 10 - (2 * count))
